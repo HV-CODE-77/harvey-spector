@@ -147,9 +147,10 @@ const RIGHT_HEIGHTS = [699, 744];
 
 export default async function SelectedWork() {
   const { data: projects } = await sanityFetch({ query: SELECTED_WORK_QUERY });
+  const allProjects = (projects ?? []) as PortfolioItem[];
 
-  const left  = projects.slice(0, 2) as PortfolioItem[];
-  const right = projects.slice(2, 4) as PortfolioItem[];
+  const left  = allProjects.slice(0, 2);
+  const right = allProjects.slice(2, 4);
 
   return (
     <section id="work" className="bg-white">
@@ -202,7 +203,7 @@ export default async function SelectedWork() {
         </div>
 
         <div className="flex flex-col gap-10 w-full">
-          {(projects as PortfolioItem[]).map((item) => (
+          {allProjects.map((item) => (
             <MobileCard key={item._id} item={item} />
           ))}
         </div>
