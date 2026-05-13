@@ -1,13 +1,33 @@
 import Image from "next/image";
+import { sanityFetch } from "@/sanity/lib/live";
+import { urlFor } from "@/sanity/lib/image";
 
 const monoStyle = { fontFamily: "var(--font-geist-mono), monospace" };
 const interStyle = { fontFamily: "var(--font-inter-var), Inter, sans-serif" };
 
-const IMG_SURFERS   = "https://www.figma.com/api/mcp/asset/ccd143f1-924c-49f3-8538-f75074842213";
-const IMG_CYBERPUNK = "https://www.figma.com/api/mcp/asset/aab47cea-3430-4bcb-ba79-cc3e872541fd";
-const IMG_AGENCY    = "https://www.figma.com/api/mcp/asset/ce91d344-6995-4f2d-9c6b-e3b2e67d6342";
-const IMG_MINIMAL   = "https://www.figma.com/api/mcp/asset/349eaa96-9569-41c0-83b6-8264a96a72d9";
-const ARROW         = "https://www.figma.com/api/mcp/asset/77b25495-e75e-4643-b000-7fc8cdc369a6";
+const ARROW = "https://www.figma.com/api/mcp/asset/77b25495-e75e-4643-b000-7fc8cdc369a6";
+
+const SELECTED_WORK_QUERY = `
+  *[_type == "portfolio" && featured == true] | order(order asc)[0...4] {
+    _id,
+    title,
+    slug,
+    coverImage,
+    tags,
+    year,
+    externalUrl
+  }
+`;
+
+type PortfolioItem = {
+  _id: string;
+  title: string;
+  slug: { current: string };
+  coverImage?: { asset: { _ref: string }; hotspot?: object };
+  tags?: string[];
+  year?: number;
+  externalUrl?: string;
+};
 
 function Corner({ className = "" }: { className?: string }) {
   return (
@@ -62,28 +82,42 @@ function CTABox() {
   );
 }
 
-interface CardProps {
-  img: string;
-  title: string;
-  tags: string[];
-  heightPx: number;
-}
+function CardImage({ item, heightPx, aspectRatio }: { item: PortfolioItem; heightPx?: number; aspectRatio?: string }) {
+  const imageUrl = item.coverImage ? urlFor(item.coverImage).width(900).url() : null;
+  const sizeStyle = heightPx
+    ? { height: `${heightPx}px` }
+    : { aspectRatio };
 
-function ProjectCard({ img, title, tags, heightPx }: CardProps) {
-  return (
-    <div className="flex flex-col gap-[10px] w-full">
-      <div className="relative w-full overflow-hidden flex-none" style={{ height: `${heightPx}px` }}>
-        <Image src={img} alt={title} fill className="object-cover" />
+  if (imageUrl) {
+    return (
+      <div className="relative w-full overflow-hidden flex-none" style={sizeStyle}>
+        <Image src={imageUrl} alt={item.title} fill className="object-cover" />
         <div className="absolute bottom-4 left-4 flex gap-3 items-center z-10">
-          {tags.map((t) => <Tag key={t} label={t} />)}
+          {item.tags?.map((t) => <Tag key={t} label={t} />)}
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full overflow-hidden flex-none bg-[#1a1a1a]" style={sizeStyle}>
+      <div className="absolute bottom-4 left-4 flex gap-3 items-center z-10">
+        {item.tags?.map((t) => <Tag key={t} label={t} />)}
+      </div>
+    </div>
+  );
+}
+
+function ProjectCard({ item, heightPx }: { item: PortfolioItem; heightPx: number }) {
+  return (
+    <div className="flex flex-col gap-[10px] w-full">
+      <CardImage item={item} heightPx={heightPx} />
       <div className="flex items-center justify-between w-full">
         <p
           className="font-black text-[36px] text-black tracking-[-1.44px] uppercase whitespace-nowrap"
           style={{ ...interStyle, lineHeight: "1.1" }}
         >
-          {title}
+          {item.title}
         </p>
         <ArrowIcon size={32} />
       </div>
@@ -91,21 +125,38 @@ function ProjectCard({ img, title, tags, heightPx }: CardProps) {
   );
 }
 
-const MOBILE_PROJECTS = [
-  { img: IMG_SURFERS,   title: "Surfers paradise",   tags: ["Social Media", "Photography"] },
-  { img: IMG_CYBERPUNK, title: "Cyberpunk caffe",    tags: ["Social Media", "Photography"] },
-  { img: IMG_AGENCY,    title: "Agency 976",         tags: ["Social Media", "Photography"] },
-  { img: IMG_MINIMAL,   title: "Minimal Playground", tags: ["Social Media", "Photography"] },
-];
+function MobileCard({ item }: { item: PortfolioItem }) {
+  return (
+    <div key={item._id} className="flex flex-col gap-[10px] w-full">
+      <CardImage item={item} aspectRatio="3/4" />
+      <div className="flex items-center justify-between w-full">
+        <p
+          className="font-black text-[24px] text-black tracking-[-0.96px] uppercase"
+          style={{ ...interStyle, lineHeight: "1.1" }}
+        >
+          {item.title}
+        </p>
+        <ArrowIcon size={28} />
+      </div>
+    </div>
+  );
+}
 
-export default function SelectedWork() {
+const LEFT_HEIGHTS  = [744, 699];
+const RIGHT_HEIGHTS = [699, 744];
+
+export default async function SelectedWork() {
+  const { data: projects } = await sanityFetch({ query: SELECTED_WORK_QUERY });
+
+  const left  = projects.slice(0, 2) as PortfolioItem[];
+  const right = projects.slice(2, 4) as PortfolioItem[];
+
   return (
     <section id="work" className="bg-white">
 
       {/* ── Desktop ── */}
       <div className="hidden md:flex flex-col gap-[61px] px-8 py-20">
 
-        {/* Header */}
         <div className="flex items-center justify-between w-full">
           <div className="flex gap-[10px] items-start">
             <div className="font-light text-black uppercase" style={{ ...interStyle, fontSize: "96px", letterSpacing: "-7.68px" }}>
@@ -121,31 +172,27 @@ export default function SelectedWork() {
           </div>
         </div>
 
-        {/* Staggered two-column grid */}
         <div className="flex gap-6 items-end w-full">
-
-          {/* Left column — card 1, card 2, CTA */}
           <div className="flex-1 flex flex-col items-start justify-between self-stretch min-w-0 gap-[24px]">
-            <ProjectCard img={IMG_SURFERS}   title="Surfers paradise" tags={["Social Media", "Photography"]} heightPx={744} />
-            <ProjectCard img={IMG_CYBERPUNK} title="Cyberpunk caffe"  tags={["Social Media", "Photography"]} heightPx={699} />
+            {left.map((item, i) => (
+              <ProjectCard key={item._id} item={item} heightPx={LEFT_HEIGHTS[i]} />
+            ))}
             <div className="w-[465px]">
               <CTABox />
             </div>
           </div>
 
-          {/* Right column — offset 240px, card 3, card 4 */}
           <div className="flex-1 flex flex-col gap-[117px] pt-[240px] min-w-0">
-            <ProjectCard img={IMG_AGENCY}  title="Agency 976"        tags={["Social Media", "Photography"]} heightPx={699} />
-            <ProjectCard img={IMG_MINIMAL} title="Minimal Playground" tags={["Social Media", "Photography"]} heightPx={744} />
+            {right.map((item, i) => (
+              <ProjectCard key={item._id} item={item} heightPx={RIGHT_HEIGHTS[i]} />
+            ))}
           </div>
-
         </div>
       </div>
 
       {/* ── Mobile ── single column */}
       <div className="md:hidden flex flex-col gap-10 px-4 py-12">
 
-        {/* Header */}
         <div className="flex items-start justify-between w-full">
           <div className="font-light text-black uppercase" style={{ ...interStyle, fontSize: "48px", letterSpacing: "-3.84px" }}>
             <p style={{ lineHeight: "0.86" }}>Selected</p>
@@ -154,32 +201,13 @@ export default function SelectedWork() {
           <p className="text-[14px] leading-[1.1] text-[#1f1f1f]" style={monoStyle}>004</p>
         </div>
 
-        {/* Cards */}
         <div className="flex flex-col gap-10 w-full">
-          {MOBILE_PROJECTS.map((p) => (
-            <div key={p.title} className="flex flex-col gap-[10px] w-full">
-              <div className="relative w-full overflow-hidden" style={{ aspectRatio: "3/4" }}>
-                <Image src={p.img} alt={p.title} fill className="object-cover" />
-                <div className="absolute bottom-4 left-4 flex gap-2 items-center z-10">
-                  {p.tags.map((t) => <Tag key={t} label={t} />)}
-                </div>
-              </div>
-              <div className="flex items-center justify-between w-full">
-                <p
-                  className="font-black text-[24px] text-black tracking-[-0.96px] uppercase"
-                  style={{ ...interStyle, lineHeight: "1.1" }}
-                >
-                  {p.title}
-                </p>
-                <ArrowIcon size={28} />
-              </div>
-            </div>
+          {(projects as PortfolioItem[]).map((item) => (
+            <MobileCard key={item._id} item={item} />
           ))}
         </div>
 
-        {/* CTA */}
         <CTABox />
-
       </div>
 
     </section>
